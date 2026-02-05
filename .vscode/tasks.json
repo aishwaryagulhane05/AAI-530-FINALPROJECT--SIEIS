@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start SIEIS infra",
+      "type": "shell",
+      "command": "docker-compose up -d",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}
