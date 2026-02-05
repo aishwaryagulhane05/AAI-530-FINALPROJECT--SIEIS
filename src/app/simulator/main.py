@@ -2,6 +2,13 @@ import logging
 import threading
 import time
 from typing import Optional
+from pathlib import Path
+import sys
+
+# Add project root to sys.path so imports work when run directly
+_project_root = Path(__file__).parents[3]
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 from src.app.config import KAFKA_BROKER, KAFKA_TOPIC, SPEED_FACTOR, DATA_PATH, MOTE_LOCS_PATH
 from src.app.simulator.data_loader import load_data_loader
