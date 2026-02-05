@@ -12,7 +12,16 @@ services:
       - --advertise-kafka-addr PLAINTEXT://host.docker.internal:9092
     ports:
       - "9092:9092"
+
+  redpanda-console:
+    image: redpandadata/console:latest
+    container_name: sieis-console
+    environment:
+      - KAFKA_BROKERS=redpanda:9092
+    ports:
       - "8080:8080"
+    depends_on:
+      - redpanda
 
   influxdb:
     image: influxdb:2.7
