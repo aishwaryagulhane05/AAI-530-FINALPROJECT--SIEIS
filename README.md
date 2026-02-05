@@ -23,7 +23,11 @@ Before starting, ensure you have:
 - **Python 3.11.5+**
 - **Git** for version control
 - **Internet connection** (for initial data download)
+---
 
+## Project Architecture
+
+![SIEIS Architecture](./Documentation/Architecture%20Diagram/sieis-architecture.png)
 ---
 
 ## Project Structure
