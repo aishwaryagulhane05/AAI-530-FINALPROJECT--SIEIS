@@ -1,3 +1,5 @@
+"""Emit per-mote readings to Kafka with time compression."""
+
 import logging
 import time
 from typing import Optional
@@ -23,6 +25,7 @@ def emit_mote(mote_id: int, df, producer, speed_factor: float = 100.0, stop_even
         if prev_ts is not None:
             delta = (ts - prev_ts).total_seconds()
             if delta > 0:
+            # Sleep scaled by speed_factor to simulate real-time pacing.
                 delay = float(delta) / float(speed_factor)
                 time.sleep(delay)
 

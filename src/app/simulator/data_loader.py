@@ -1,6 +1,7 @@
+"""Load and clean Intel Lab sensor data for simulation."""
+
 import pandas as pd
-from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 
 def load_data_loader(data_path: str, mote_locs_path: str) -> Tuple[Dict[int, pd.DataFrame], pd.DataFrame]:
@@ -54,14 +55,14 @@ def load_data_loader(data_path: str, mote_locs_path: str) -> Tuple[Dict[int, pd.
     # Fill null light with 0
     df['light'] = df['light'].fillna(0.0)
     
-    # Forward fill null voltage (within each mote group)
+    # Forward fill voltage per mote to keep continuity in streams
     df = df.sort_values(['moteid', 'timestamp'])
     df['voltage'] = df.groupby('moteid')['voltage'].fillna(method='ffill')
     
     # Fill any remaining null voltage with backward fill (for first readings)
     df['voltage'] = df['voltage'].fillna(method='bfill')
     
-    # Split by mote ID
+    # Split by mote ID for per-sensor simulation
     mote_data_dict = {}
     for mote_id in df['moteid'].unique():
         mote_df = df[df['moteid'] == mote_id].copy()
@@ -97,7 +98,7 @@ def get_mote_data(data_path: str, mote_locs_path: str, mote_id: int) -> pd.DataF
     return mote_data_dict.get(mote_id, pd.DataFrame())
 
 
-def get_mote_location(mote_locs_path: str, mote_id: int) -> Tuple[float, float]:
+def get_mote_location(mote_locs_path: str, mote_id: int) -> Optional[Tuple[float, float]]:
     """
     Get (x, y) location for a mote.
     

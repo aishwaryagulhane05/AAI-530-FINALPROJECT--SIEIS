@@ -1,3 +1,5 @@
+"""Centralized configuration for local services and simulator defaults."""
+
 import os
 from dotenv import load_dotenv
 

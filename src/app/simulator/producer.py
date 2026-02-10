@@ -1,3 +1,5 @@
+"""Kafka producer wrapper with JSON serialization and safe send behavior."""
+
 import json
 import logging
 from typing import Any, Optional
@@ -41,6 +43,7 @@ class Producer:
 
         try:
             fut = self._producer.send(self.topic, key=key, value=value)
+            # Block until the broker acks the message.
             fut.get(timeout=10)
         except Exception:
             logger.exception("Failed to send message to Kafka: %s", value)

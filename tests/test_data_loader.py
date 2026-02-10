@@ -1,6 +1,6 @@
+"""Tests for Intel Lab data loading and cleaning."""
+
 import pytest
-import pandas as pd
-from pathlib import Path
 from src.app.simulator.data_loader import load_data_loader
 
 
