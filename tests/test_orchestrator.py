@@ -1,5 +1,9 @@
 """Tests for orchestrator threading and shutdown behavior."""
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import threading
 
 from src.app.simulator import orchestrator as orch_module

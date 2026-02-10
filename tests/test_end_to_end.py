@@ -5,6 +5,12 @@ Verifies that original sensor data from Intel Lab CSV successfully persists
 to InfluxDB through the Kafka message queue.
 """
 
+import sys
+from pathlib import Path
+
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import time
 import threading
 import logging
@@ -91,12 +97,14 @@ def _run_consumer_safe(stop_event: threading.Event) -> None:
 def test_end_to_end_pipeline():
     """Test complete simulator → Kafka → consumer → InfluxDB pipeline.
     
+    Verifies 2 days of historical data flows through the pipeline correctly.
+    
     Steps:
     1. Start simulator in background thread (emits sensor data to Kafka)
     2. Start consumer in background thread (reads Kafka, writes to InfluxDB)
     3. Wait for data to flow through pipeline
-    4. Query InfluxDB to verify original data persisted
-    5. Assert 10+ sensor readings from multiple motes
+    4. Query InfluxDB for 2 days of data (Feb 28-Mar 1, 2004)
+    5. Assert data exists from multiple motes with all sensor fields
     """
     # Flag to stop background threads
     stop_event = threading.Event()
@@ -126,10 +134,11 @@ def test_end_to_end_pipeline():
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
         query_api = client.query_api()
         
-        # Query all points from sensor_reading measurement (historical data from 2004)
+        # Query 2 days of data from sensor_reading measurement (Feb 28-Mar 1, 2004)
+        # This verifies the pipeline can process at least 2 days worth of historical data
         query = f"""
         from(bucket: "{INFLUX_BUCKET}")
-            |> range(start: 2004-01-01T00:00:00Z, stop: 2005-01-01T00:00:00Z)
+            |> range(start: 2004-02-28T00:00:00Z, stop: 2004-03-02T00:00:00Z)
             |> filter(fn: (r) => r._measurement == "sensor_reading")
         """
         
@@ -175,3 +184,61 @@ def test_end_to_end_pipeline():
         stop_event.set()
         simulator_thread.join(timeout=5)
         consumer_thread.join(timeout=5)
+
+
+def main():
+    """Run end-to-end test standalone (non-pytest mode)."""
+    print("\n" + "="*80)
+    print("🚀 SIEIS END-TO-END PIPELINE TEST")
+    print("="*80 + "\n")
+    
+    print("📋 Configuration:")
+    print(f"   • Kafka Broker: {KAFKA_BROKER}")
+    print(f"   • Kafka Topic: {KAFKA_TOPIC}")
+    print(f"   • InfluxDB URL: {INFLUX_URL}")
+    print(f"   • InfluxDB Org: {INFLUX_ORG}")
+    print(f"   • InfluxDB Bucket: {INFLUX_BUCKET}")
+    print(f"   • Test Data: 2 days (Feb 28-Mar 1, 2004)")
+    print()
+    
+    try:
+        print("🚀 Starting end-to-end test...")
+        test_end_to_end_pipeline()
+        
+        print("\n" + "="*80)
+        print("✅ END-TO-END TEST PASSED!")
+        print("="*80)
+        print("\n📈 Pipeline Status:")
+        print("   • Simulator → Kafka: ✅ Working")
+        print("   • Kafka → Consumer: ✅ Working")
+        print("   • Consumer → InfluxDB: ✅ Working")
+        print("   • Data Verification: ✅ Passed")
+        print()
+        
+        return 0
+        
+    except AssertionError as e:
+        print("\n" + "="*80)
+        print("❌ TEST FAILED!")
+        print("="*80)
+        print(f"\nAssertion Error: {e}\n")
+        return 1
+        
+    except Exception as e:
+        print("\n" + "="*80)
+        print("❌ TEST FAILED WITH ERROR!")
+        print("="*80)
+        print(f"\nError: {e}\n")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
+if __name__ == "__main__":
+    import sys
+    try:
+        exit_code = main()
+        sys.exit(exit_code)
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Test interrupted by user")
+        sys.exit(1)

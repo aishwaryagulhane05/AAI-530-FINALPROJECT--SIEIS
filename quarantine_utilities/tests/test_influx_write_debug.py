@@ -1,5 +1,9 @@
 """Debug test to verify InfluxDB write with actual message format."""
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import pytest
 from datetime import datetime
 from src.app.config import INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET

@@ -1,5 +1,9 @@
 """Integration test for writing and reading points in InfluxDB."""
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import time
 import uuid
 from datetime import datetime, timedelta, timezone

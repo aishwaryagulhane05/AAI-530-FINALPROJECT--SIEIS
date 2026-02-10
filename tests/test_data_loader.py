@@ -1,5 +1,9 @@
 """Tests for Intel Lab data loading and cleaning."""
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import pytest
 from src.app.simulator.data_loader import load_data_loader
 
