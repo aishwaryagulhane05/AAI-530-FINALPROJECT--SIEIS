@@ -43,9 +43,9 @@ flowchart LR
   H --> F
 ```
 
-### 1.4 Architecture Artifact Placeholder (HTML)
+### 1.4 Architecture Artifact Placeholder
 
-![SIEIS Architecture](Documentation\sieis-system-architecture.png)  
+![SIEIS Architecture](.\Documentation\sieis-system-architecture.png)  
 
 
 ## 2. Services and Port Addresses (Manual Verification)
