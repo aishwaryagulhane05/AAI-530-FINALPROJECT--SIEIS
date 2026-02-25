@@ -43,10 +43,9 @@ flowchart LR
   H --> F
 ```
 
-### 1.4 Architecture Artifact Placeholder
+### 1.4 Architecture Diagram
 
-![SIEIS Architecture](.\Documentation\sieis-system-architecture.png)  
-
+![SIEIS Architecture](Documentation/sieis-system-architecture.png)
 
 ## 2. Services and Port Addresses (Manual Verification)
 
@@ -68,6 +67,7 @@ Important note:
 - Inter-container Kafka traffic uses `redpanda:9092`.
 
 ### 2.1 Console Credentials and Login Details
+
 Default local development credentials from the current compose configuration:
 
 | Service | Login URL | Username | Password | Additional Details |
@@ -90,10 +90,12 @@ Security note:
 - Git
 
 ### 3.2 Python Dependencies
+
 Install all Python packages from:
 - `requirements.txt`
 
 ### 3.3 Required Data Files
+
 The following files should exist before pipeline execution:
 - `data/raw/mote_locs.txt`
 - `data/processed/incremental_data.txt` (simulator input)
@@ -106,12 +108,14 @@ If processed files are absent or stale, regenerate using scripts in:
 ## 4. Procedure: Run the Project Locally
 
 ### Step 1: Clone and enter the repository
+
 ```powershell
 git clone <repository-url>
 cd SIEIS
 ```
 
 ### Step 2: (Optional but recommended) Create Python virtual environment
+
 ```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
@@ -119,11 +123,13 @@ pip install -r requirements.txt
 ```
 
 ### Step 3: Start full system with Docker Compose
+
 ```powershell
 docker-compose up --build -d
 ```
 
 ### Step 4: Validate container startup
+
 ```powershell
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 ```
@@ -141,43 +147,52 @@ Expected containers include:
 - `sieis-scheduler`
 
 ### Step 5: Manual service verification
+
 1. Verify Kafka broker
+
 ```powershell
 docker exec sieis-redpanda rpk cluster info
 ```
 
 2. Verify InfluxDB
+
 ```powershell
 curl http://localhost:8086/health
 ```
 
 3. Verify MinIO
+
 ```powershell
 curl http://localhost:9000/minio/health/live
 ```
 
 4. Verify API
+
 ```powershell
 curl http://localhost:8000/api/v1/health
 ```
 
 5. Verify message flow
+
 ```powershell
 docker exec sieis-redpanda rpk topic consume sensor_readings --num 5
 ```
 
 6. Open web interfaces
+
 - Redpanda Console: `http://localhost:8080`
 - InfluxDB UI: `http://localhost:8086`
 - MinIO Console: `http://localhost:9001`
 - Dashboard: `http://localhost:8501`
 
 ### Step 6: Shut down environment
+
 ```powershell
 docker-compose down
 ```
 
 Remove volumes (destructive) when complete reset is required:
+
 ```powershell
 docker-compose down -v
 ```
@@ -199,76 +214,76 @@ Use host-compatible environment values in `.env` (for example, `localhost` endpo
 
 ```text
 SIEIS/
-├── docker-compose.yml
-├── requirements.txt
-├── README.md
-├── QUICKSTART.md
-├── .env.example
-├── data/
-│   ├── raw/
-│   │   └── mote_locs.txt
-│   ├── processed/
-│   │   ├── historical_data.txt
-│   │   ├── incremental_data.txt
-│   │   └── realtime_data.txt
-│   └── realtime_mapping/
-│       ├── transform_to_realtime.py
-│       ├── preview_mapping.py
-│       └── validate_output.py
-├── src/
-│   └── app/
-│       ├── config.py
-│       ├── api_server.py
-│       ├── api/
-│       │   ├── main.py
-│       │   ├── schemas.py
-│       │   └── routes/
-│       │       ├── sensors.py
-│       │       ├── analytics.py
-│       │       └── ml.py
-│       ├── simulator/
-│       │   ├── main.py
-│       │   ├── orchestrator.py
-│       │   ├── emitter.py
-│       │   ├── producer.py
-│       │   └── data_loader.py
-│       ├── consumer/
-│       │   ├── main.py
-│       │   ├── kafka_consumer.py
-│       │   ├── influx_writer.py
-│       │   └── parquet_writer.py
-│       ├── dashboard/
-│       │   ├── app.py
-│       │   └── pages/
-│       │       ├── 1_Realtime_Monitor.py
-│       │       ├── 2_Historical_Analysis.py
-│       │       └── 3_Anomaly_Detection.py
-│       ├── ml/
-│       │   ├── detector.py
-│       │   ├── models/
-│       │   │   └── model_registry.json
-│       │   └── preprocessing/
-│       │       └── data_prep.py
-│       └── scheduler/
-│           ├── main.py
-│           └── jobs.py
-├── scripts/
-│   ├── load_historical_data.py
-│   ├── split_dataset.py
-│   ├── remap_timestamps.py
-│   ├── train_model.py
-│   ├── retrain_model.py
-│   └── verify_*.py
-├── tests/
-│   ├── test_e2e_pipeline.py
-│   ├── test_full_pipeline.py
-│   ├── test_data_loader.py
-│   └── test_container_*.py
-└── Documentation/
-    ├── ARCHITECTURE.md
-    ├── DEPLOYMENT.md
-    ├── ML_MODELS.md
-    └── PROJECT_CONTEXT.md
+|-- docker-compose.yml
+|-- requirements.txt
+|-- README.md
+|-- QUICKSTART.md
+|-- .env.example
+|-- data/
+|   |-- raw/
+|   |   `-- mote_locs.txt
+|   |-- processed/
+|   |   |-- historical_data.txt
+|   |   |-- incremental_data.txt
+|   |   `-- realtime_data.txt
+|   `-- realtime_mapping/
+|       |-- transform_to_realtime.py
+|       |-- preview_mapping.py
+|       `-- validate_output.py
+|-- src/
+|   `-- app/
+|       |-- config.py
+|       |-- api_server.py
+|       |-- api/
+|       |   |-- main.py
+|       |   |-- schemas.py
+|       |   `-- routes/
+|       |       |-- sensors.py
+|       |       |-- analytics.py
+|       |       `-- ml.py
+|       |-- simulator/
+|       |   |-- main.py
+|       |   |-- orchestrator.py
+|       |   |-- emitter.py
+|       |   |-- producer.py
+|       |   `-- data_loader.py
+|       |-- consumer/
+|       |   |-- main.py
+|       |   |-- kafka_consumer.py
+|       |   |-- influx_writer.py
+|       |   `-- parquet_writer.py
+|       |-- dashboard/
+|       |   |-- app.py
+|       |   `-- pages/
+|       |       |-- 1_Realtime_Monitor.py
+|       |       |-- 2_Historical_Analysis.py
+|       |       `-- 3_Anomaly_Detection.py
+|       |-- ml/
+|       |   |-- detector.py
+|       |   |-- models/
+|       |   |   `-- model_registry.json
+|       |   `-- preprocessing/
+|       |       `-- data_prep.py
+|       `-- scheduler/
+|           |-- main.py
+|           `-- jobs.py
+|-- scripts/
+|   |-- load_historical_data.py
+|   |-- split_dataset.py
+|   |-- remap_timestamps.py
+|   |-- train_model.py
+|   |-- retrain_model.py
+|   `-- verify_*.py
+|-- tests/
+|   |-- test_e2e_pipeline.py
+|   |-- test_full_pipeline.py
+|   |-- test_data_loader.py
+|   `-- test_container_*.py
+`-- Documentation/
+    |-- ARCHITECTURE.md
+    |-- DEPLOYMENT.md
+    |-- ML_MODELS.md
+    `-- PROJECT_CONTEXT.md
 ```
 
 Structure note:
@@ -286,6 +301,7 @@ Structure note:
 ## 8. Data Source and Temporal Categorization for Real-Time IoT Emulation
 
 ### 8.1 Source Dataset
+
 SIEIS uses the Intel Lab sensor dataset (historical indoor environmental telemetry), where each record includes:
 - date and time
 - epoch/sample index
@@ -295,28 +311,31 @@ SIEIS uses the Intel Lab sensor dataset (historical indoor environmental telemet
 The original dataset is historical (early 2000s), so it does not naturally behave as a present-day live stream.
 
 ### 8.2 Preprocessing and Time Remapping
+
 To make legacy telemetry operationally useful for current-time demonstrations, the pipeline adds a derived field:
 - `updated_timestamp`: a remapped timestamp aligned to the present calendar window
 
 This preserves the original intra-series behavior (ordering and temporal spacing) while shifting records into an interpretable modern timeline.
 
 ### 8.3 Historical vs Incremental Categorization
+
 The project organizes processed data into three artifacts under `data/processed/`:
 
 1. `realtime_data.txt`
-- Full remapped dataset (complete timeline representation).
+   - Full remapped dataset (complete timeline representation).
 
 2. `historical_data.txt`
-- Archive-oriented partition (typically the older 80% block after chronological split).
-- Used for backfill, long-horizon analysis, and model training workflows.
-- Loaded through historical loaders into MinIO Parquet (and optionally InfluxDB as needed).
+   - Archive-oriented partition (typically the older 80% block after chronological split).
+   - Used for backfill, long-horizon analysis, and model training workflows.
+   - Loaded through historical loaders into MinIO Parquet (and optionally InfluxDB as needed).
 
 3. `incremental_data.txt`
-- Stream-oriented partition (typically the newer 20% block).
-- Used by the simulator as the active feed for Kafka publication.
-- Represents the "arriving" portion of data to mimic ongoing sensor production.
+   - Stream-oriented partition (typically the newer 20% block).
+   - Used by the simulator as the active feed for Kafka publication.
+   - Represents the "arriving" portion of data to mimic ongoing sensor production.
 
 ### 8.4 Why This Mimics a Real IoT Scenario
+
 This design reproduces the operational structure of production IoT systems:
 - historical corpus retained in a cold analytical tier (MinIO/Parquet),
 - incremental events continuously emitted through a message bus (Kafka/Redpanda),
@@ -332,6 +351,7 @@ Consequently, SIEIS can emulate:
 ## 9. ML Training, Retraining, and Scheduler Automation
 
 ### 9.1 ML Component Overview
+
 SIEIS uses an Isolation Forest anomaly detector implemented in:
 - `src/app/ml/detector.py`
 - `src/app/ml/preprocessing/data_prep.py`
@@ -348,6 +368,7 @@ FastAPI serves inference and model-management endpoints:
 - `POST /api/v1/ml/model/reload`
 
 ### 9.2 Initial Model Training (Manual)
+
 Run this after historical data is available (local file or MinIO Parquet):
 
 ```powershell
@@ -355,6 +376,7 @@ python scripts/train_model.py --source minio
 ```
 
 Useful variants:
+
 ```powershell
 python scripts/train_model.py --source local --max-rows 200000
 python scripts/train_model.py --source minio --contamination 0.03
@@ -369,6 +391,7 @@ What the script does:
 5. Attempts API model reload and sends a test prediction
 
 ### 9.3 Incremental Retraining (Manual)
+
 Use retraining when new data arrives and you want to refresh model behavior:
 
 ```powershell
@@ -376,16 +399,19 @@ python scripts/retrain_model.py --source minio --days 30
 ```
 
 Alternative source:
+
 ```powershell
 python scripts/retrain_model.py --source influxdb --days 7
 ```
 
 After retraining, reload the API model if not automatically reloaded:
+
 ```powershell
 curl -X POST http://localhost:8000/api/v1/ml/model/reload
 ```
 
 ### 9.4 Scheduler-Based Daily Automation
+
 The `scheduler` container (`src/app/scheduler/main.py`) runs two UTC cron jobs:
 
 - Job A (`00:00 UTC`): `remap_and_restart`
@@ -399,6 +425,7 @@ The `scheduler` container (`src/app/scheduler/main.py`) runs two UTC cron jobs:
   - Calls API reload endpoint so inference uses the latest model without container restart.
 
 Immediate smoke test (run both jobs on startup):
+
 ```powershell
 docker compose up -d scheduler
 docker compose down scheduler
@@ -412,22 +439,27 @@ Scheduler runtime configuration is controlled by environment variables in `docke
 - `RUN_JOBS_ON_START`
 
 ### 9.5 Verification After Training/Retraining
+
 1. Confirm API sees the model:
+
 ```powershell
 curl http://localhost:8000/api/v1/ml/model/info
 ```
 
 2. Confirm health includes model-loaded state:
+
 ```powershell
 curl http://localhost:8000/api/v1/health
 ```
 
 3. Confirm scheduler execution logs:
+
 ```powershell
 docker logs sieis-scheduler --tail 200
 ```
 
 4. Confirm new model files are created:
+
 ```powershell
 Get-ChildItem src\\app\\ml\\models\\anomaly_detector_*.pkl | Sort-Object LastWriteTime -Descending | Select-Object -First 5
 ```
