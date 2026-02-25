@@ -1,4 +1,5 @@
 services:
+  
   redpanda:
     image: redpandadata/redpanda:latest
     container_name: sieis-redpanda
@@ -8,10 +9,13 @@ services:
       - --smp 1
       - --memory 512M
       - --overprovisioned
-      - --kafka-addr PLAINTEXT://0.0.0.0:9092
-      - --advertise-kafka-addr PLAINTEXT://host.docker.internal:9092
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
     ports:
       - "9092:9092"
+      - "19092:19092"
+    networks:
+      - sieis-network
 
   redpanda-console:
     image: redpandadata/console:latest
@@ -22,10 +26,12 @@ services:
       - "8080:8080"
     depends_on:
       - redpanda
+    networks:
+      - sieis-network
 
-  influxdb:
-    image: influxdb:2.7
-    container_name: sieis-influxdb
+  influxdb3:
+    image: influxdb:latest
+    container_name: sieis-influxdb3
     ports:
       - "8086:8086"
     environment:
@@ -35,8 +41,229 @@ services:
       - DOCKER_INFLUXDB_INIT_ORG=sieis
       - DOCKER_INFLUXDB_INIT_BUCKET=sensor_data
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-token
+      - DOCKER_INFLUXDB_INIT_RETENTION=0  # Infinite retention for development (use 30d, 90d, 365d for production)
     volumes:
-      - influxdb_data:/var/lib/influxdb2
+      - influxdb3_data:/var/lib/influxdb2
+    networks:
+      - sieis-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: sieis-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - sieis-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: sieis-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin123;
+      /usr/bin/mc mb myminio/sieis-archive --ignore-existing;
+      /usr/bin/mc anonymous set download myminio/sieis-archive;
+      exit 0;
+      "
+    networks:
+      - sieis-network
+
+  simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile.simulator
+    container_name: sieis-simulator
+    depends_on:
+      - redpanda
+    environment:
+      - KAFKA_BROKER=redpanda:9092
+      - KAFKA_TOPIC=sensor_readings
+      - SPEED_FACTOR=100
+      - DATA_PATH=/app/data/processed/incremental_data.txt
+      - MOTE_LOCS_PATH=/app/data/raw/mote_locs.txt
+      - FILTER_TODAY_ONLY=true  
+    volumes:
+      - ./data/raw:/app/data/raw:ro
+      - ./data/processed:/app/data/processed:ro
+    networks:
+      - sieis-network
+
+  consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile.consumer
+    container_name: sieis-consumer
+    depends_on:
+      redpanda:
+        condition: service_started
+      influxdb3:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      - KAFKA_BROKER=redpanda:9092
+      - KAFKA_TOPIC=sensor_readings
+      - INFLUX_URL=http://influxdb3:8086
+      - INFLUX_TOKEN=my-super-secret-token
+      - INFLUX_ORG=sieis
+      - INFLUX_BUCKET=sensor_data
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_BUCKET=sieis-archive
+      - MINIO_SECURE=false
+    networks:
+      - sieis-network
+
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: sieis-api
+    ports:
+      - "8000:8000"
+    depends_on:
+      influxdb3:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      - INFLUX_URL=http://influxdb3:8086
+      - INFLUX_TOKEN=my-super-secret-token
+      - INFLUX_ORG=sieis
+      - INFLUX_BUCKET=sensor_data
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_BUCKET=sieis-archive
+      - MINIO_SECURE=false
+      - API_PORT=8000
+      - API_HOST=0.0.0.0
+    volumes:
+      - ./src:/app/src                         # live-reload source changes without rebuild
+      - ./src/app/ml/models:/app/src/app/ml/models
+    networks:
+      - sieis-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    container_name: sieis-dashboard
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+      - influxdb3
+      - minio
+    environment:
+      - INFLUX_URL=http://influxdb3:8086
+      - INFLUX_TOKEN=my-super-secret-token
+      - INFLUX_ORG=sieis
+      - INFLUX_BUCKET=sensor_data
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_BUCKET=sieis-archive
+      - MINIO_SECURE=false
+      - API_PORT=8000
+      - API_URL=http://sieis-api:8000
+    volumes:
+      - ./src:/app/src:ro            # live-reload source changes without rebuild
+      - ./data:/app/data:ro
+      - ./src/app/ml/models:/app/src/app/ml/models:ro
+    networks:
+      - sieis-network
+
+  # ── SIEIS Scheduler ────────────────────────────────────────────────────────
+  # APScheduler container: runs two daily cron jobs
+  #   Job A  00:00 UTC  — remap incremental_data.txt + restart simulator
+  #   Job B  02:00 UTC  — retrain anomaly model + hot-reload FastAPI
+  #
+  # To run both jobs IMMEDIATELY (smoke-test without waiting for midnight):
+  #   RUN_JOBS_ON_START=true docker-compose up scheduler
+  # ─────────────────────────────────────────────────────────────────────────
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.scheduler
+    container_name: sieis-scheduler
+    depends_on:
+      influxdb3:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    environment:
+      # ── Schedule times (UTC) ──────────────────────────────────────────────
+      - SCHEDULER_TIMEZONE=UTC
+      - JOB_A_HOUR=0             # midnight UTC → remap + restart simulator
+      - JOB_A_MINUTE=0
+      - JOB_B_HOUR=2             # 2 AM UTC → retrain model + reload API
+      - JOB_B_MINUTE=0
+      # Set to "true" to fire both jobs immediately on container start (testing)
+      - RUN_JOBS_ON_START=false
+      # ── Job A config ─────────────────────────────────────────────────────
+      - SIMULATOR_CONTAINER=sieis-simulator
+      - INCR_DATA_PATH=/app/data/processed/incremental_data.txt
+      # ── Job B config ─────────────────────────────────────────────────────
+      - API_RELOAD_URL=http://sieis-api:8000/api/v1/ml/model/reload
+      # ── Shared service credentials ────────────────────────────────────────
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_BUCKET=sieis-archive
+      - MINIO_SECURE=false
+      - INFLUX_URL=http://influxdb3:8086
+      - INFLUX_TOKEN=my-super-secret-token
+      - INFLUX_ORG=sieis
+      - INFLUX_BUCKET=sensor_data
+    volumes:
+      # Data volume — scheduler writes remapped incremental_data.txt here
+      - ./data/processed:/app/data/processed
+      # Model volume — scheduler writes new .pkl here; API reads from same mount
+      - ./src/app/ml/models:/app/src/app/ml/models
+      # Docker socket — allows scheduler to restart sieis-simulator
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - sieis-network
+    restart: unless-stopped
+
+
+networks:
+  sieis-network:
+    driver: bridge
 
 volumes:
-  influxdb_data:
+  influxdb3_data:
+  minio_data:

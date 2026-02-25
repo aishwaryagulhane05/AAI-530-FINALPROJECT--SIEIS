@@ -1,0 +1,75 @@
+{
+  "models": [
+    {
+      "filename": "anomaly_detector_20260225_041931.pkl",
+      "trained_at": "2026-02-25T04:19:31.445233",
+      "n_samples": 295037,
+      "anomaly_ratio": 0.01,
+      "features": [
+        "temperature",
+        "humidity",
+        "light",
+        "voltage",
+        "hour",
+        "day_of_week"
+      ]
+    },
+    {
+      "filename": "anomaly_detector_20260225_053331.pkl",
+      "trained_at": "2026-02-25T05:33:31.290149",
+      "n_samples": 295037,
+      "anomaly_ratio": 0.01,
+      "features": [
+        "temperature",
+        "humidity",
+        "light",
+        "voltage",
+        "hour",
+        "day_of_week"
+      ]
+    },
+    {
+      "filename": "anomaly_detector_20260225_054911.pkl",
+      "trained_at": "2026-02-25T05:49:10.736852",
+      "n_samples": 499638,
+      "anomaly_ratio": 0.05,
+      "features": [
+        "temperature",
+        "humidity",
+        "light",
+        "voltage",
+        "hour",
+        "day_of_week"
+      ]
+    },
+    {
+      "filename": "anomaly_detector_20260225_061932.pkl",
+      "trained_at": "2026-02-25T06:19:32.665523",
+      "n_samples": 1740246,
+      "anomaly_ratio": 0.05,
+      "features": [
+        "temperature",
+        "humidity",
+        "light",
+        "voltage",
+        "hour",
+        "day_of_week"
+      ]
+    },
+    {
+      "filename": "anomaly_detector_20260225_104131_scheduled.pkl",
+      "trained_at": "2026-02-25T10:41:31.463276",
+      "n_samples": 1815412,
+      "anomaly_ratio": 0.05,
+      "features": [
+        "temperature",
+        "humidity",
+        "light",
+        "voltage",
+        "hour",
+        "day_of_week"
+      ]
+    }
+  ],
+  "latest": "anomaly_detector_20260225_104131_scheduled.pkl"
+}

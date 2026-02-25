@@ -4,7 +4,7 @@ import logging
 import threading
 from typing import Optional
 
-from src.app.config import KAFKA_BROKER, KAFKA_TOPIC, SPEED_FACTOR, DATA_PATH, MOTE_LOCS_PATH
+from src.app.config import KAFKA_BROKER, KAFKA_TOPIC, SPEED_FACTOR, DATA_PATH, MOTE_LOCS_PATH, FILTER_TODAY_ONLY
 from src.app.simulator.data_loader import load_data_loader
 from src.app.simulator.producer import Producer
 from src.app.simulator.emitter import emit_mote
@@ -14,9 +14,11 @@ logger = logging.getLogger(__name__)
 
 class Orchestrator:
     """Start per-mote emitters and manage graceful shutdown."""
-    def __init__(self, broker: str = KAFKA_BROKER, topic: str = KAFKA_TOPIC, max_motes: Optional[int] = None):
+    def __init__(self, broker: str = KAFKA_BROKER, topic: str = KAFKA_TOPIC, max_motes: Optional[int] = None, filter_today_only: Optional[bool] = None):
         self.producer = Producer(broker=broker, topic=topic)
-        self.mote_data, _ = load_data_loader(DATA_PATH, MOTE_LOCS_PATH)
+        # Use provided filter parameter, otherwise default to config value
+        filter_param = filter_today_only if filter_today_only is not None else FILTER_TODAY_ONLY
+        self.mote_data, _ = load_data_loader(DATA_PATH, MOTE_LOCS_PATH, filter_today_only=filter_param)
         self.max_motes = max_motes
         self.threads = []
         self.stop_event = threading.Event()

@@ -3,8 +3,12 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import pandas as pd
-from src.app.config import INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET, DATA_PATH
+from src.app.config import INFLUX_URL, INFLUX_TOKEN, INFLUX_ORG, INFLUX_BUCKET, DATA_DIR
+DATA_PATH = DATA_DIR / "processed" / "historical_data.txt"
 from influxdb_client import InfluxDBClient
 
 print("🔍 SIMPLE 80% DATA LOAD VERIFICATION")

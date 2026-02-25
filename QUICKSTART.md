@@ -279,6 +279,61 @@ docker exec sieis-redpanda rpk cluster info
 
 ---
 
+## ✅ Step 7: Verify Everything Works
+
+### Quick Verification Commands
+
+**1. Verify All Containers Running:**
+```powershell
+docker ps
+```
+Expected: 6 containers (redpanda, console, influxdb3, minio, simulator, consumer)
+
+**2. Verify InfluxDB Data:**
+```powershell
+python scripts/verify_influxDb.py
+```
+Expected output:
+- Date range of stored data
+- Total record count
+- Unique mote count
+- Sample records
+
+**3. Verify MinIO Storage:**
+```powershell
+python scripts/verify_minio_storage.py
+```
+Expected: Parquet files in date-partitioned structure
+
+**4. Run Full Pipeline Test:**
+```powershell
+python tests/test_full_pipeline.py
+```
+Expected: All 6 tests pass (containers, simulator, consumer → InfluxDB, consumer → MinIO, data consistency)
+
+**5. Check Recent Kafka Messages:**
+```powershell
+docker exec sieis-redpanda rpk topic consume sensor_readings -n 5 -o newest
+```
+
+### Common Issues
+
+**If InfluxDB shows no data:**
+- Check consumer logs: `docker logs sieis-consumer | Select-String "Successfully wrote"`
+- The consumer may have already processed all data
+- Restart simulator: `docker restart sieis-simulator`
+
+**If simulator finished all data:**
+```powershell
+# Check if incremental_data.txt has today's records
+docker logs sieis-simulator | Select-String "Filtered to"
+
+# If no records for today, regenerate the data:
+python data/realtime_mapping/transform_to_realtime.py
+```
+
+---
+
 ## 🎓 Next Steps
 
 Once the simulator is running successfully:

@@ -1,6 +1,21 @@
 # SIEIS - Smart Indoor Environmental Intelligent System
 
-Real-time sensor data simulation and analytics system using Kafka, InfluxDB, and Python.
+Real-time sensor data simulation and analytics system using Kafka, InfluxDB 2.7, MinIO (Parquet archive), and Python.
+
+## 🏗️ Architecture Overview
+
+**Dual-Write Pattern for Hot & Cold Data:**
+
+- **Hot Path (Real-time):** CSV → Simulator → Redpanda → Consumer → InfluxDB 2.7 → Streamlit Dashboard
+  - InfluxDB 2.7 stores data for real-time queries (configurable retention)
+  - Uses `updated_timestamp` field (2004 data mapped to 2025+)
+
+- **Cold Path (Historical):** Consumer → MinIO (Parquet files)
+  - Simultaneous write to MinIO as date-partitioned Parquet files
+  - Used for ML training, analytics, long-term storage
+  - Path structure: `year=YYYY/month=MM/day=DD/mote_id=X/*.parquet`
+
+**Note:** InfluxDB 3.x migration is planned for future when stable Docker images are available.
 
 ## 📋 Table of Contents
 - [Prerequisites](#prerequisites)
@@ -66,7 +81,19 @@ Follow these steps **in order** to set up the entire system:
 cd C:\Users\<YourUsername>\SIEIS
 ```
 
-### Step 2: Download Intel Lab Sensor Data
+### Step 2: Install Dependencies (Optional - only for development)
+```powershell
+# Create virtual environment
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+
+# Install requirements
+pip install -r requirements.txt
+```
+
+Note: Dependencies are automatically installed in Docker containers.
+
+### Step 3: Download Intel Lab Sensor Data
 ```powershell
 # Create data directory
 mkdir -p data\raw
@@ -80,89 +107,60 @@ mkdir -p data\raw
 - `data\raw\data.txt` (150+ MB)
 - `data\raw\mote_locs.txt` (552 B)
 
-### Step 3: Create Python Virtual Environment
-```powershell
-# Create venv
-python -m venv venv
-
-# Activate venv
-.\venv\Scripts\Activate.ps1
-
-# Upgrade pip
-python -m pip install --upgrade pip
-
-# Install dependencies
-pip install kafka-python==2.0.2 pandas==2.1.0 numpy python-dotenv==1.0.0
-```
-
-### Step 4: Create .env Configuration File
-Create `.env` in project root with:
-```env
-# Kafka Configuration
-KAFKA_BROKER=localhost:9092
-KAFKA_TOPIC=sensor_readings
-SPEED_FACTOR=100
-
-# Data Paths
-DATA_PATH=data/raw/data.txt
-MOTE_LOCS_PATH=data/raw/mote_locs.txt
-
-# InfluxDB Configuration
-INFLUXDB_URL=http://localhost:8086
-INFLUXDB_ORG=sieis
-INFLUXDB_BUCKET=sensor_data
-INFLUXDB_TOKEN=my-super-secret-token
-INFLUXDB_USERNAME=admin
-INFLUXDB_PASSWORD=password123
-```
-
-### Step 5: Start Docker Containers
+### Step 4: Start All Services with Docker Compose
 ```powershell
 # Navigate to project root
 cd C:\Users\<YourUsername>\SIEIS
 
-# Start Redpanda (Kafka), InfluxDB, and Redpanda Console
-docker-compose up -d
+# Build and start all services (Redpanda, InfluxDB 3, MinIO, Simulator, Consumer)
+docker-compose up --build -d
 
-# Wait 10 seconds for services to initialize
-Start-Sleep -Seconds 10
+# View logs (optional)
+docker-compose logs -f
 
 # Verify containers are running
 docker ps
 ```
 
-**Expected output:**
+**Expected services (6 containers):**
 ```
 CONTAINER ID   IMAGE                              STATUS
 <id>          redpandadata/redpanda:latest        Up <time>
 <id>          redpandadata/console:latest         Up <time>
-<id>          influxdb:2.7                        Up <time>
+<id>          influxdata/influxdb3-core:latest    Up <time>
+<id>          minio/minio:latest                  Up <time>
+<id>          sieis-simulator                     Up <time>
+<id>          sieis-consumer                      Up <time>
 ```
 
-### Step 6: Verify Redpanda Broker Health
+All services are now containerized and orchestrated by Docker Compose!
+
+### Step 5: Verify Services are Running
+
+**Check Redpanda (Kafka):**
 ```powershell
 docker exec -it sieis-redpanda rpk cluster info
 ```
 
-**Expected output:**
-```
-CLUSTER
-=======
-redpanda.<id>
-
-BROKERS
-=======
-ID    HOST                  PORT
-0*    host.docker.internal  9092
-```
-
-### Step 7: Run Tests (Optional but Recommended)
+**Check InfluxDB 2.7:**
 ```powershell
-# Run data loader tests
-pytest tests/ -v
+# Open InfluxDB UI
+start http://localhost:8086
+# Login: admin / password123
+# Navigate to Data Explorer to query sensor_reading measurement
 ```
 
-Expected: 5 tests passing in ~90 seconds
+**Check MinIO (browse at http://localhost:9001):**
+- Username: `minioadmin`
+- Password: `minioadmin123`
+- Verify bucket `sieis-archive` exists and contains Parquet files
+
+**View Consumer Logs:**
+```powershell
+docker-compose logs -f consumer
+```
+
+Expected: Dual-write logs showing "Dual-write successful: InfluxDB + MinIO"
 
 ---
 
@@ -181,40 +179,52 @@ Expected: 5 tests passing in ~90 seconds
 - **Features:** View topics, messages, partitions, consumer groups
 - **Usage:** Browse sensor_readings topic in real-time
 
-### 💾 InfluxDB (Time-Series Database)
+### 💾 InfluxDB 2.7 (Time-Series Database - Hot Data)
 - **URL:** `http://localhost:8086`
 - **Organization:** `sieis`
 - **Bucket:** `sensor_data`
 - **Username:** `admin`
 - **Password:** `password123`
 - **API Token:** `my-super-secret-token`
-- **Login Steps:**
-  1. Open `http://localhost:8086` in browser
-  2. User: `admin`, Password: `password123`
-  3. Navigate to **Data → Buckets** to see `sensor_data`
-  4. Use API Token in `.env` for programmatic access
+- **Retention:** Configurable (30d recommended for cold path duration)
+- **Query Language:** Flux
+- **Login:** Open http://localhost:8086, login with admin/password123
+
+### 🗄️ MinIO (Object Storage - Cold Data Archive)
+- **Console URL:** `http://localhost:9001`
+- **API URL:** `http://localhost:9000`
+- **Username:** `minioadmin`
+- **Password:** `minioadmin123`
+- **Bucket:** `sieis-archive`
+- **Format:** Parquet files (date-partitioned)
+- **Usage:** Browse files via console, query with Python (see `src/app/ml/load_historical.py`)
 
 ---
 
 ## Running the Application
 
-### Start Simulator (Emit Data to Kafka)
+### All Services Run Automatically!
+
+With the new containerized architecture, everything runs automatically:
+
 ```powershell
-# From project root with venv activated
-.\venv\Scripts\python.exe -m src.app.simulator.main
+# Start everything
+docker-compose up -d
+
+# Stop everything
+docker-compose down
+
+# Restart specific service
+docker-compose restart simulator
+docker-compose restart consumer
 ```
 
-**Output:**
-```
-INFO:src.app.simulator.main:Starting orchestrator for 60 motes
-INFO:kafka.conn:<BrokerConnection node_id=0 host=host.docker.internal:9092...>: Connection complete.
-```
-
-**Behavior:**
-- Spawns 60 threads (one per mote/sensor)
-- Emits historical sensor data at accelerated speed (SPEED_FACTOR=100)
-- Sends JSON messages to `sensor_readings` topic
-- Press **Ctrl+C** to gracefully stop
+**What's happening:**
+1. **Simulator** container emits sensor data to Redpanda (Kafka)
+2. **Consumer** container reads from Kafka and writes to both:
+   - InfluxDB 3 (real-time queries, last 30 days)
+   - MinIO (historical Parquet archive, permanent)
+3. Data is immediately available in both hot and cold storage
 
 ### Verify Messages Are Flowing
 ```powershell
@@ -224,7 +234,7 @@ docker exec sieis-redpanda rpk topic consume sensor_readings --num 5 --offset st
 
 **Expected:** JSON messages with fields: mote_id, timestamp, temperature, humidity, light, voltage
 
-### Example Message
+### Example Message (Now includes `updated_timestamp`)
 ```json
 {
   "topic": "sensor_readings",
@@ -232,6 +242,7 @@ docker exec sieis-redpanda rpk topic consume sensor_readings --num 5 --offset st
   "value": "{
     \"mote_id\": 8,
     \"timestamp\": \"2004-02-28T01:02:16.424892\",
+    \"updated_timestamp\": \"2025-02-28T01:02:16.424892\",
     \"temperature\": 19.1848,
     \"humidity\": 38.9742,
     \"light\": 108.56,
@@ -243,6 +254,9 @@ docker exec sieis-redpanda rpk topic consume sensor_readings --num 5 --offset st
 }
 ```
 
+**Note:** `updated_timestamp` maps 2004 data to 2025+ for realistic demos
+```
+
 ---
 
 ## Accessing Services
@@ -250,8 +264,46 @@ docker exec sieis-redpanda rpk topic consume sensor_readings --num 5 --offset st
 | Service | URL | Purpose |
 |---------|-----|---------|
 | Redpanda Console | `http://localhost:8080` | Browse Kafka topics & messages |
-| InfluxDB | `http://localhost:8086` | Query time-series data (admin/password123) |
+| InfluxDB 2.7 | `http://localhost:8086` | Query real-time data (Flux, admin/password123) |
+| MinIO Console | `http://localhost:9001` | Browse Parquet files (minioadmin/minioadmin123) |
+| MinIO API | `http://localhost:9000` | S3-compatible object storage API |
 | Kafka Broker | `localhost:9092` | Direct Kafka client connections |
+
+---
+
+## Querying Historical Data from MinIO
+
+Use the provided utility to load historical Parquet data for ML training or analytics:
+
+```python
+from datetime import datetime
+from src.app.ml.load_historical import load_historical_data
+
+# Load February 2025 data
+df = load_historical_data(
+    start_date=datetime(2025, 2, 1),
+    end_date=datetime(2025, 2, 28),
+    mote_ids=[1, 2, 3]  # Optional: filter specific motes
+)
+
+print(f"Loaded {len(df)} records")
+print(df.head())
+
+# Use for ML training, analytics, etc.
+```
+
+Data is organized in MinIO as:
+```
+s3://sieis-archive/
+  year=2025/
+    month=02/
+      day=01/
+        mote_id=1/
+          batch_20250201_120000.parquet
+          batch_20250201_120030.parquet
+        mote_id=2/
+          ...
+```
 
 ---
 

@@ -1,0 +1,35 @@
+# Step 1: Stop all containers
+docker-compose down
+
+# Step 2: Remove Kafka data volume (clears old messages)
+docker volume rm sieis_redpanda_data
+
+# Step 3: Start everything fresh
+docker-compose up -d
+
+# Step 4: Wait for services to initialize
+Write-Host "Waiting 30 seconds for services to start..." -ForegroundColor Yellow
+Start-Sleep -Seconds 30
+
+# Step 5: Check simulator is running and emitting data
+Write-Host "`n=== SIMULATOR STATUS ===" -ForegroundColor Cyan
+docker logs sieis-simulator --tail 50 | Select-String "Filtered to|Starting orchestrator|emitting"
+
+# Step 6: Wait for data to flow through pipeline
+Write-Host "`nWaiting 20 seconds for data to flow..." -ForegroundColor Yellow
+Start-Sleep -Seconds 20
+
+# Step 7: Check consumer is writing to BOTH InfluxDB and MinIO
+Write-Host "`n=== CONSUMER ACTIVITY ===" -ForegroundColor Cyan
+docker logs sieis-consumer --tail 30 | Select-String "Successfully wrote" | Select-Object -Last 10
+
+# Step 8: Verify MinIO has files
+Write-Host "`n=== MINIO FILES ===" -ForegroundColor Cyan
+docker exec sieis-minio mc ls myminio/sieis-archive/ --recursive | Select-Object -First 20
+
+# Step 9: Verify InfluxDB has data
+Write-Host "`n=== INFLUXDB DATA ===" -ForegroundColor Cyan
+python scripts\verify_influxDb.py
+
+Write-Host "`n=== DONE ===" -ForegroundColor Green
+Write-Host "If you see 'Successfully wrote X messages to MinIO' and files listed, the pipeline is working!" -ForegroundColor Green

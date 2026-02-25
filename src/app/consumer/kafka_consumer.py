@@ -20,7 +20,7 @@ class KafkaBatchConsumer:
         group_id: str = "sieis-consumers",
         batch_size: int = 100,
         batch_timeout: float = 1.0,
-        auto_offset_reset: str = "latest",
+        auto_offset_reset: str = "earliest",  # "latest" caused messages to be missed if consumer starts after simulator
     ) -> None:
         self.topic = topic
         self.batch_size = batch_size

@@ -1,0 +1,12 @@
+{
+  "last_line": 0,
+  "timestamp": "2026-02-25T11:44:52.529371",
+  "stats": {
+    "total_read": 0,
+    "influx_written": 0,
+    "minio_written": 0,
+    "skipped": 0,
+    "errors": 0
+  },
+  "note": "Reset by clear_storage.py"
+}

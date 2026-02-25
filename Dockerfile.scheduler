@@ -1,0 +1,40 @@
+# ── SIEIS Scheduler Container ─────────────────────────────────────────────────
+# Runs APScheduler with two daily cron jobs:
+#   Job A 00:00 UTC — remap incremental timestamps + restart simulator
+#   Job B 02:00 UTC — retrain anomaly model + hot-reload FastAPI
+#
+# Requires /var/run/docker.sock mounted (to restart sieis-simulator).
+# ─────────────────────────────────────────────────────────────────────────────
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system deps (curl for healthchecks)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy full source so scheduler can import src.app.* and scripts.*
+COPY src/ ./src/
+COPY scripts/ ./scripts/
+
+# PYTHONPATH includes /app so both 'src.*' and 'scripts.*' resolve correctly
+ENV PYTHONPATH=/app
+
+# ── Runtime defaults (override via docker-compose environment) ────────────────
+ENV SCHEDULER_TIMEZONE=UTC
+ENV JOB_A_HOUR=0
+ENV JOB_A_MINUTE=0
+ENV JOB_B_HOUR=2
+ENV JOB_B_MINUTE=0
+ENV RUN_JOBS_ON_START=false
+ENV SIMULATOR_CONTAINER=sieis-simulator
+ENV API_RELOAD_URL=http://sieis-api:8000/api/v1/ml/model/reload
+ENV INCR_DATA_PATH=/app/data/processed/incremental_data.txt
+
+CMD ["python", "-m", "src.app.scheduler.main"]
